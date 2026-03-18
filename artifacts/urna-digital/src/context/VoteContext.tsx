@@ -2,27 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { User } from '@supabase/supabase-js';
 import { Eleitor, Candidato } from '../data/initialData';
+import { OperationType, SupabaseErrorInfo } from '../types';
 
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-export interface SupabaseErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string;
-    email?: string | null;
-  }
-}
-
-
+export { OperationType };
+export type { SupabaseErrorInfo };
 
 export interface VotoDetalhado {
   sexo: string;
@@ -624,9 +607,19 @@ export function VoteProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const toCandidatoRow = (c: Candidato) => ({
+    id: c.id,
+    nome: c.nome,
+    numero: c.numero,
+    cargo: c.cargo,
+    grupo: c.grupo,
+    foto: c.foto ?? null,
+  });
+
   const addCandidato = async (c: Candidato) => {
     try {
-      await supabase.from('candidates').upsert(c);
+      const { error } = await supabase.from('candidates').upsert(toCandidatoRow(c));
+      if (error) throw error;
     } catch (error) {
       handleSupabaseError(error, OperationType.WRITE, `candidates/${c.id}`);
     }
@@ -637,8 +630,9 @@ export function VoteProvider({ children }: { children: React.ReactNode }) {
       const BATCH_SIZE = 500;
       console.log(`Iniciando importação de ${newCandidatos.length} candidatos...`);
       for (let i = 0; i < newCandidatos.length; i += BATCH_SIZE) {
-        const chunk = newCandidatos.slice(i, i + BATCH_SIZE);
-        await supabase.from('candidates').upsert(chunk);
+        const chunk = newCandidatos.slice(i, i + BATCH_SIZE).map(toCandidatoRow);
+        const { error } = await supabase.from('candidates').upsert(chunk);
+        if (error) throw error;
       }
       console.log('Importação de candidatos finalizada com sucesso.');
     } catch (error) {

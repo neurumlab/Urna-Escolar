@@ -150,7 +150,7 @@ export default function Cadastro() {
     }
   };
 
-  const handleAddCandidato = (e: FormEvent) => {
+  const handleAddCandidato = async (e: FormEvent) => {
     e.preventDefault();
     if (!newNome || newNumero.length !== 5) return;
 
@@ -161,17 +161,17 @@ export default function Cadastro() {
       cargo: newCargo,
       grupo: newGrupo || (newCargo === 'Professor' ? 'Docentes' : 'Estudantes'),
       foto: newFoto || undefined,
-      votos: 0,
-      votosDetalhados: []
     };
 
-    addCandidato(newCandidato);
-    
-    // Reset form
-    setNewNome('');
-    setNewNumero('');
-    setNewGrupo('');
-    setNewFoto(null);
+    try {
+      await addCandidato(newCandidato);
+      setNewNome('');
+      setNewNumero('');
+      setNewGrupo('');
+      setNewFoto(null);
+    } catch {
+      // error already shown via context error state
+    }
   };
 
   const normalizeStr = (val: unknown): string => {
