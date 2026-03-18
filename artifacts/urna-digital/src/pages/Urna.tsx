@@ -1,4 +1,4 @@
-import { Lock, Monitor } from 'lucide-react';
+import { Lock, Monitor, Fingerprint } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useVote } from '../context/VoteContext';
