@@ -51,8 +51,29 @@ export default function Urna() {
   const [candidato, setCandidato] = useState<any>(null);
   const [isBranco, setIsBranco] = useState(false);
 
-  // Logo do Colégio (Pode ser configurável no futuro)
-  const schoolLogo = "https://cdn-icons-png.flaticon.com/512/2602/2602414.png";
+  // Determina se o votante é aluno (vota 3x) ou professor/funcionario (vota 1x no grêmio)
+  const isAluno = activeVoter?.tipo === 'aluno';
+
+  // Passos disponíveis por tipo de votante
+  const steps: Step[] = isAluno
+    ? ['Professor', 'Representante', 'Grêmio']
+    : ['Grêmio'];
+
+  const stepIndex = steps.indexOf(step);
+  const totalSteps = steps.length;
+
+  // Verifica se um candidato Representante pertence à turma do eleitor
+  const isRepresentanteElegivel = (c: any): boolean => {
+    if (!activeVoter) return false;
+    const grupoUpper = c.grupo.trim().toUpperCase();
+    const turmaUpper = activeVoter.turma.trim().toUpperCase();
+    const grupoEndsWithTurma = grupoUpper.endsWith(turmaUpper) ||
+      grupoUpper.endsWith(` ${turmaUpper}`);
+    const serieYear = activeVoter.serie.match(/\d+/)?.[0] ?? '';
+    const grupoYear = c.grupo.match(/\d+/)?.[0] ?? '';
+    const yearsMatch = serieYear && grupoYear ? serieYear === grupoYear : true;
+    return grupoEndsWithTurma && yearsMatch;
+  };
 
   const handleNumber = useCallback((num: string) => {
     if (numero.length < 5 && !isBranco) {
@@ -61,11 +82,15 @@ export default function Urna() {
       playBeep();
       
       if (novoNumero.length === 5) {
-        const found = candidatos.find(c => c.numero === novoNumero && c.cargo === step);
+        let found: any = candidatos.find(c => c.numero === novoNumero && c.cargo === step);
+        // Para Representante, o candidato deve ser da turma do eleitor
+        if (found && step === 'Representante' && !isRepresentanteElegivel(found)) {
+          found = undefined;
+        }
         setCandidato(found || 'nulo');
       }
     }
-  }, [numero, isBranco, step, candidatos]);
+  }, [numero, isBranco, step, candidatos, activeVoter]);
 
   const handleBranco = () => {
     if (numero === '') {
@@ -96,9 +121,10 @@ export default function Urna() {
         recordVote(candidato.id, currentCargo);
       }
       
-      if (step === 'Professor') setStep('Representante');
-      else if (step === 'Representante') setStep('Grêmio');
-      else {
+      const nextIndex = stepIndex + 1;
+      if (nextIndex < steps.length) {
+        setStep(steps[nextIndex]);
+      } else {
         setStep('Fim');
         resetActiveVoter();
       }
@@ -109,10 +135,11 @@ export default function Urna() {
     }
   };
 
-  // Reset step when activeVoter changes
+  // Define o passo inicial conforme o tipo do votante
   useEffect(() => {
     if (activeVoter) {
-      setStep('Professor');
+      const startStep: Step = activeVoter.tipo === 'aluno' ? 'Professor' : 'Grêmio';
+      setStep(startStep);
       setNumero('');
       setCandidato(null);
       setIsBranco(false);
@@ -218,11 +245,26 @@ export default function Urna() {
             
             {/* Cabeçalho da Tela */}
             <div className="flex justify-between items-start mb-4 md:mb-6 shrink-0">
-              <div className="space-y-1">
-                <p className="text-xs md:text-xl font-bold text-slate-800 uppercase tracking-tight">Seu voto para:</p>
-                <h2 className="text-xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter leading-tight">
+              <div className="space-y-1 flex-1 min-w-0 pr-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-[9px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    Passo {stepIndex + 1} de {totalSteps}
+                  </p>
+                  {activeVoter && (
+                    <p className="text-[9px] md:text-xs font-bold text-violet-600 uppercase tracking-widest truncate">
+                      · {activeVoter.nome.split(' ').slice(0, 2).join(' ')}
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-tight">Seu voto para:</p>
+                <h2 className="text-lg md:text-3xl font-black text-slate-900 uppercase tracking-tighter leading-tight">
                   {step === 'Professor' ? 'Professor de Turma' : step === 'Representante' ? 'Líder de Turma' : 'Grêmio Estudantil'}
                 </h2>
+                {step === 'Representante' && activeVoter && (
+                  <p className="text-[9px] md:text-xs font-medium text-slate-400 uppercase">
+                    Turma: {activeVoter.serie} {activeVoter.turma}
+                  </p>
+                )}
               </div>
               <div className="w-16 h-20 md:w-28 md:h-32 bg-slate-200 rounded-lg flex items-center justify-center border-2 border-slate-300 overflow-hidden shrink-0">
                 {candidato && candidato !== 'nulo' && candidato.foto ? (
