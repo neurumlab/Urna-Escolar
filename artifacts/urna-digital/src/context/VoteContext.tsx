@@ -63,7 +63,7 @@ interface VoteContextType {
   setCurrentUrnaId: (id: string) => void;
   authorizeVoter: (cgm: string, urnaId: string) => Promise<void>;
   recordVote: (candidatoId: string | 'BRANCO' | 'NULO', cargo: string) => Promise<void>;
-  resetActiveVoter: () => Promise<void>;
+  resetActiveVoter: (urnaId?: string) => Promise<void>;
   setIsElectionOpen: (open: boolean) => Promise<void>;
   setSchoolName: (name: string) => Promise<void>;
   setElectionTitle: (title: string) => Promise<void>;
@@ -139,17 +139,17 @@ export function VoteProvider({ children }: { children: React.ReactNode }) {
     return localStorage.getItem('urna_device_id');
   });
 
-  // Track auth state
+  // Track auth state - sem login Google, admin sempre ativo
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      setIsAdmin(session?.user?.email === 'canvexo@gmail.com');
+      setIsAdmin(true);
       setIsAuthReady(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      setIsAdmin(session?.user?.email === 'canvexo@gmail.com');
+      setIsAdmin(true);
       setIsAuthReady(true);
     });
 
@@ -437,14 +437,17 @@ export function VoteProvider({ children }: { children: React.ReactNode }) {
 
   const setIsElectionOpen = async (open: boolean) => {
     try {
-      console.log(`Alterando status da eleição para: ${open ? 'aberta' : 'fechada'}`);
+      setIsElectionOpenLocal(open);
       await supabase
         .from('elections')
-        .update({ status: open ? 'aberta' : 'fechada' })
-        .eq('id', 'active');
-      
-      console.log('Status da eleição atualizado com sucesso.');
+        .upsert({
+          id: 'active',
+          status: open ? 'aberta' : 'fechada',
+          school_name: schoolName,
+          title: electionTitle
+        });
     } catch (error) {
+      setIsElectionOpenLocal(!open);
       handleSupabaseError(error, OperationType.WRITE, 'elections/active');
     }
   };
@@ -475,8 +478,13 @@ export function VoteProvider({ children }: { children: React.ReactNode }) {
 
   const resetCollection = async (collName: string) => {
     console.log(`Limpando coleção: ${collName}...`);
-    const { error } = await supabase.from(collName).delete().neq('id', '0'); // Assuming 'id' exists and is never '0'
-    if (error) throw error;
+    let result;
+    if (collName === 'students') {
+      result = await supabase.from(collName).delete().neq('cgm', '');
+    } else {
+      result = await supabase.from(collName).delete().neq('id', '');
+    }
+    if (result.error) throw result.error;
     console.log(`Coleção ${collName} limpa com sucesso.`);
   };
 
