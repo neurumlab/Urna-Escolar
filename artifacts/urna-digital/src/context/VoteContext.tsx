@@ -112,6 +112,15 @@ export function VoteProvider({ children }: { children: React.ReactNode }) {
 
   const clearError = () => setError(null);
 
+  function normalizeRecord<T extends Record<string, any>>(record: T): T {
+    const result: any = {};
+    for (const key of Object.keys(record)) {
+      const val = record[key];
+      result[key] = typeof val === 'string' ? val.normalize('NFC') : val;
+    }
+    return result as T;
+  }
+
   function handleSupabaseError(err: any, operationType: OperationType, path: string | null) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     
@@ -239,8 +248,8 @@ export function VoteProvider({ children }: { children: React.ReactNode }) {
         const { data: activeElection } = await supabase
           .from('elections').select('*').eq('id', 'active').maybeSingle();
 
-        if (students) setEleitores(students);
-        if (candidates) setCandidatos(candidates);
+        if (students) setEleitores(students.map(normalizeRecord));
+        if (candidates) setCandidatos(candidates.map(normalizeRecord));
         if (urnasData) setUrnas(urnasData);
         if (activeElection) {
           setIsElectionOpenLocal(activeElection.status === 'aberta');
@@ -293,13 +302,13 @@ export function VoteProvider({ children }: { children: React.ReactNode }) {
     // Subscriptions
     const studentsChannel = supabase.channel('students-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
-        supabase.from('students').select('*').then(({ data }) => data && setEleitores(data));
+        supabase.from('students').select('*').then(({ data }) => data && setEleitores(data.map(normalizeRecord)));
       })
       .subscribe();
 
     const candidatesChannel = supabase.channel('candidates-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'candidates' }, () => {
-        supabase.from('candidates').select('*').then(({ data }) => data && setCandidatos(data));
+        supabase.from('candidates').select('*').then(({ data }) => data && setCandidatos(data.map(normalizeRecord)));
       })
       .subscribe();
 

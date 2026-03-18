@@ -174,6 +174,10 @@ export default function Cadastro() {
     setNewFoto(null);
   };
 
+  const normalizeStr = (val: unknown): string => {
+    return String(val ?? '').normalize('NFC');
+  };
+
   const handleSpreadsheetUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -182,8 +186,8 @@ export default function Cadastro() {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
+        const buffer = evt.target?.result as ArrayBuffer;
+        const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         
@@ -242,14 +246,14 @@ export default function Cadastro() {
             });
 
             return {
-              cgm: String(normalizedRow.cgm || normalizedRow.matricula || Math.random().toString(36).substr(2, 9)),
-              nome: String(normalizedRow.nome || normalizedRow.estudante || 'Sem Nome').toUpperCase(),
+              cgm: normalizeStr(normalizedRow.cgm || normalizedRow.matricula || Math.random().toString(36).substr(2, 9)),
+              nome: normalizeStr(normalizedRow.nome || normalizedRow.estudante || 'Sem Nome').toUpperCase(),
               idade: Number(normalizedRow.idade || 15),
-              sexo: String(normalizedRow.sexo || 'M').toUpperCase().charAt(0),
-              serie: String(normalizedRow.serie || normalizedRow.série || normalizedRow.ano || ''),
-              turma: String(normalizedRow.turma || ''),
-              turno: String(normalizedRow.turno || 'MANHÃ').toUpperCase(),
-              tipo: String(normalizedRow.tipo || 'aluno').toLowerCase(),
+              sexo: normalizeStr(normalizedRow.sexo || 'M').toUpperCase().charAt(0),
+              serie: normalizeStr(normalizedRow.serie || normalizedRow.série || normalizedRow.ano || ''),
+              turma: normalizeStr(normalizedRow.turma || ''),
+              turno: normalizeStr(normalizedRow.turno || 'MANHÃ').toUpperCase(),
+              tipo: normalizeStr(normalizedRow.tipo || 'aluno').toLowerCase(),
               status_voto: 'cinza'
             };
           });
@@ -263,10 +267,10 @@ export default function Cadastro() {
 
             return {
               id: Math.random().toString(36).substr(2, 9),
-              nome: String(normalizedRow.nome || 'Sem Nome').toUpperCase(),
-              numero: String(normalizedRow.numero || normalizedRow.número || '00000'),
-              cargo: (normalizedRow.cargo || 'Professor') as any,
-              grupo: String(normalizedRow.grupo || normalizedRow.turma || ''),
+              nome: normalizeStr(normalizedRow.nome || 'Sem Nome').toUpperCase(),
+              numero: normalizeStr(normalizedRow.numero || normalizedRow.número || '00000'),
+              cargo: normalizeStr(normalizedRow.cargo || 'Professor') as any,
+              grupo: normalizeStr(normalizedRow.grupo || normalizedRow.turma || ''),
               votos: 0,
               votosDetalhados: []
             };
@@ -282,7 +286,7 @@ export default function Cadastro() {
         if (spreadsheetInputRef.current) spreadsheetInputRef.current.value = '';
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   };
 
   return (
